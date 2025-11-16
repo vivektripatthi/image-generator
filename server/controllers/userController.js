@@ -4,12 +4,15 @@ import jwt from 'jsonwebtoken'
 
 const registerUser = async (req, res) => {
     try {
+        console.log('Registration attempt:', { body: req.body });
         const { name, email, password } = req.body;
 
         if (!name || !email || !password) {
+            console.log('Missing fields:', { name: !!name, email: !!email, password: !!password });
             return res.status(400).json({ success: false, message: "Missing details" });
         }
 
+        console.log('Hashing password...');
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -19,12 +22,15 @@ const registerUser = async (req, res) => {
             password: hashedPassword,
         };
 
+        console.log('Creating new user...');
         const newUser = new userModel(userData);
 
         // Save user and handle duplicate key errors specifically
         let user;
         try {
+            console.log('Saving user to database...');
             user = await newUser.save();
+            console.log('User saved successfully:', user._id);
         } catch (error) {
             // If duplicate key (E11000), log a concise warning and return 409 without printing full stack
             if (error && error.code === 11000) {
@@ -41,12 +47,15 @@ const registerUser = async (req, res) => {
             return res.status(500).json({ success: false, message: 'Server error during registration.' });
         }
 
+        console.log('Generating JWT token...');
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+        console.log('Registration successful for:', email);
 
         return res.status(201).json({ success: true, token, user: { name: user.name } });
     } catch (error) {
         console.error('registerUser unexpected error:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        console.error('Error stack:', error.stack);
+        return res.status(500).json({ success: false, message: error.message || 'Server error during registration.' });
     }
 };
 
